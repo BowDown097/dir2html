@@ -137,7 +137,7 @@ private:
 
     static void appendMetadataItem(CTML::Node& parent, const std::string& key, const std::string& value)
     {
-        if (!value.empty())
+        if (!value.empty() && std::any_of(value.begin(), value.end(), [](unsigned char c) { return !isspace(c); }))
         {
             parent.AppendChild(
                 CTML::Node("span")
