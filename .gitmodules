@@ -6,7 +6,7 @@
 	url = https://github.com/heifner/base64
 [submodule "external/CTML"]
 	path = external/CTML
-	url = https://github.com/tinfoilboy/CTML
+	url = https://github.com/BowDown097/CTML
 [submodule "external/expected-lite"]
 	path = external/expected-lite
 	url = https://github.com/martinmoene/expected-lite
