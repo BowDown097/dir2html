@@ -32,7 +32,6 @@ pkg_check_modules(AVFILTER REQUIRED libavfilter)
 pkg_check_modules(AVFORMAT REQUIRED libavformat)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
 pkg_check_modules(MAGIC REQUIRED libmagic)
-pkg_check_modules(PNG REQUIRED libpng)
 pkg_check_modules(TAGLIB REQUIRED taglib)
 pkg_check_modules(TBB REQUIRED tbb)
 

@@ -8,7 +8,6 @@ extern "C" {
 #include <stb_image_resize2.h>
 
 // implementation provided in src/stb/stb_image_write.cpp
-// #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 }
 

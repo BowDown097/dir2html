@@ -1,6 +1,5 @@
 #include "videothumbnailer.h"
 #include <memory>
-#include <png.h>
 #include <sstream>
 #include <stdexcept>
 
@@ -11,9 +10,11 @@ extern "C" {
 #include <libavfilter/buffersrc.h>
 #include <libavformat/avformat.h>
 #include <libavutil/display.h>
-}
 
-static void writeDataCallback(png_structp png_ptr, png_bytep data, png_size_t length);
+// implementation of both of these provided elsewhere
+#include <stb_image.h>
+#include <stb_image_write.h>
+}
 
 VideoThumbnailer::~VideoThumbnailer()
 {
@@ -179,37 +180,21 @@ bool VideoThumbnailer::getPacket()
 
 std::vector<uint8_t> VideoThumbnailer::getPNGData(const VideoFrame& frame)
 {
-    std::vector<uint8_t*> rowPointers;
-    rowPointers.reserve(frame.height);
-
-    for (int i = 0; i < frame.height; ++i)
-        rowPointers.push_back(const_cast<uint8_t*>(&frame.frameData[i * frame.lineSize]));
-
-    png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png)
-        throw std::runtime_error("Could not create PNG write structure");
-
-    png_infop info = png_create_info_struct(png);
-    if (!info)
-    {
-        png_destroy_write_struct(&png, nullptr);
-        throw std::runtime_error("Could not create PNG info structure");
-    }
-
     std::vector<uint8_t> result;
-    png_set_write_fn(png, static_cast<png_voidp>(&result), writeDataCallback, nullptr);
 
-    if (setjmp(png_jmpbuf(png)))
-        throw std::runtime_error("Could not write PNG frame");
+    int res = stbi_write_png_to_func(
+        [](void* context, void* data, int size) {
+            auto* buffer = reinterpret_cast<std::vector<uint8_t>*>(context);
+            auto* u8data = reinterpret_cast<uint8_t*>(data);
+            buffer->insert(buffer->end(), u8data, u8data + size);
+        },
+        &result,
+        frame.width, frame.height, 3,
+        frame.frameData.data(), frame.lineSize);
 
-    png_set_IHDR(png, info, frame.width, frame.height, 8,
-                 PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
-                 PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+    if (res == 0)
+        throw std::runtime_error(std::string("Could not write PNG: ") + stbi_failure_reason());
 
-    png_set_rows(png, info, &rowPointers[0]);
-    png_write_png(png, info, 0, nullptr);
-
-    png_destroy_write_struct(&png, &info);
     return result;
 }
 
@@ -322,12 +307,4 @@ void VideoThumbnailer::seek(int seconds)
 
     if (!gotFrame)
         throw std::runtime_error("Could not seek video");
-}
-
-void writeDataCallback(png_structp png_ptr, png_bytep data, png_size_t length)
-{
-    std::vector<uint8_t>& buf = *(reinterpret_cast<std::vector<uint8_t>*>(png_get_io_ptr(png_ptr)));
-    int prevBufSize = buf.size();
-    buf.resize(buf.size() + length);
-    memcpy(&buf[prevBufSize], data, length);
 }
