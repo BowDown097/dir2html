@@ -2,14 +2,14 @@
 
 extern "C" {
 #define STB_IMAGE_IMPLEMENTATION
-#include "include/stb/stb_image.h"
+#include <stb_image.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "include/stb/stb_image_resize2.h"
+#include <stb_image_resize2.h>
 
 // implementation provided in src/stb/stb_image_write.cpp
 // #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "include/stb/stb_image_write.h"
+#include <stb_image_write.h>
 }
 
 nonstd::expected<ImageProperties, std::string> openAsImage(std::string_view path)

@@ -9,27 +9,22 @@ add_executable(dir2html)
 
 target_sources(dir2html
     PRIVATE
+        external/stb_image_write.cpp
+        src/dirdocument.cpp
         src/main.cpp
-        src/videothumbnailer.cpp
         src/filetypes/audiofile.cpp
         src/filetypes/imagefile.cpp
         src/filetypes/videofile.cpp
-        src/stb/stb_image_write.cpp
+        src/filetypes/videothumbnailer.cpp
     PUBLIC
         FILE_SET HEADERS FILES
-            include/alphanum.h
-            include/base64.hpp
-            include/ctml.hpp
-            include/expected.hpp
-            include/stb/stb_image.h
-            include/stb/stb_image_resize2.h
-            include/stb/stb_image_write.h
+            src/alphanum.h
             src/dirdocument.h
             src/documentconstants.h
-            src/videothumbnailer.h
             src/filetypes/audiofile.h
             src/filetypes/imagefile.h
-            src/filetypes/videofile.h)
+            src/filetypes/videofile.h
+            src/filetypes/videothumbnailer.h)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(AVCODEC REQUIRED libavcodec)
@@ -52,7 +47,7 @@ else()
 endif()
 
 target_include_directories(dir2html PRIVATE
-    src
+    src external/base64 external/CTML/include external/expected-lite/include external/stb
     ${AVCODEC_INCLUDE_DIRS} ${AVFILTER_INCLUDE_DIRS} ${AVFORMAT_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS}
     ${MAGIC_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS} ${TAGLIB_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
 target_link_libraries(dir2html PRIVATE

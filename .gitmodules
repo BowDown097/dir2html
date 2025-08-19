@@ -1,0 +1,12 @@
+[submodule "external/stb"]
+	path = external/stb
+	url = https://github.com/nothings/stb/
+[submodule "external/base64"]
+	path = external/base64
+	url = https://github.com/heifner/base64
+[submodule "external/CTML"]
+	path = external/CTML
+	url = https://github.com/tinfoilboy/CTML
+[submodule "external/expected-lite"]
+	path = external/expected-lite
+	url = https://github.com/martinmoene/expected-lite

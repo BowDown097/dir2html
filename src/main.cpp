@@ -1,5 +1,5 @@
 #include "dirdocument.h"
-#include "include/alphanum.h"
+#include "alphanum.h"
 #include <fstream>
 #include <iostream>
 #include <magic.h>

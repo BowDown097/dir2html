@@ -24,5 +24,5 @@ static uint8_t* stbiw_compress(uint8_t* data, int dataLen, int* outLenOut, [[may
 #endif
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "include/stb/stb_image_write.h"
+#include <stb_image_write.h>
 }
