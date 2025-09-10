@@ -11,7 +11,7 @@ DirDocument::DirDocument()
         .SetAttribute("name", "viewport")
         .SetAttribute("content", "width=device-width, initial-scale=1.0"));
 
-    AppendNodeToHead(CTML::Node("style", std::string(DocumentConstants::StyleSheet)));
+    AppendNodeToHead(CTML::Node("style", DocumentConstants::StyleSheet));
 }
 
 void DirDocument::addFileEntry(const std::filesystem::path& filePath, const FileProperties& fileProperties)
@@ -36,7 +36,7 @@ void DirDocument::addFileEntry(const std::filesystem::path& filePath, const File
 
     if (const AudioProperties* ap = std::get_if<AudioProperties>(&fileProperties))
     {
-        fileImg.SetAttribute("src", std::string(DocumentConstants::AudioIcon));
+        fileImg.SetAttribute("src", DocumentConstants::AudioIcon);
         appendMetadataItem(metadataPanel, "Title:", ap->title);
         appendMetadataItem(metadataPanel, "Duration:", formatDuration(ap->duration));
         appendMetadataItem(metadataPanel, "Album:", ap->album);
@@ -58,7 +58,7 @@ void DirDocument::addFileEntry(const std::filesystem::path& filePath, const File
         }
         else
         {
-            fileImg.SetAttribute("src", std::string(DocumentConstants::ImageIcon));
+            fileImg.SetAttribute("src", DocumentConstants::ImageIcon);
         }
 
         appendMetadataItem(metadataPanel, "Dimensions:",
@@ -74,7 +74,7 @@ void DirDocument::addFileEntry(const std::filesystem::path& filePath, const File
         }
         else
         {
-            fileImg.SetAttribute("src", std::string(DocumentConstants::VideoIcon));
+            fileImg.SetAttribute("src", DocumentConstants::VideoIcon);
         }
 
         std::string fps(16, '\0');
@@ -87,7 +87,7 @@ void DirDocument::addFileEntry(const std::filesystem::path& filePath, const File
     }
     else
     {
-        fileImg.SetAttribute("src", std::string(DocumentConstants::GenericIcon));
+        fileImg.SetAttribute("src", DocumentConstants::GenericIcon);
     }
 
     fileInfo.AppendChild(CTML::Node("span", "▼").SetAttribute("class", "metadata-toggle"));
@@ -130,7 +130,7 @@ void DirDocument::appendMetadataItem(CTML::Node& parent, const std::string& key,
 void DirDocument::finalize()
 {
     AppendNodeToBody(fileGrid);
-    AppendNodeToBody(CTML::Node("script", std::string(DocumentConstants::ScriptBody)));
+    AppendNodeToBody(CTML::Node("script", DocumentConstants::ScriptBody));
 }
 
 std::string DirDocument::formatDuration(int duration)
