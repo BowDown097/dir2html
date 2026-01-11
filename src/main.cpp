@@ -1,17 +1,15 @@
 #include "dirdocument.h"
 #include "alphanum.h"
+#include <cxxopts.hpp>
 #include <fstream>
 #include <iostream>
-#include <magic.h>
-#include <map>
 #include <taglib/tdebuglistener.h>
+#include <tbb/concurrent_map.h>
 #include <tbb/parallel_for_each.h>
 
 extern "C" {
 #include <libavutil/log.h>
 }
-
-namespace stdfs = std::filesystem;
 
 template<doj::StringComparison Comp>
 struct doj::alphanum_less<stdfs::path, Comp>
@@ -43,169 +41,137 @@ struct doj::alphanum_less<stdfs::path, Comp>
 
 struct NothingListener : TagLib::DebugListener { void printMessage(const TagLib::String&) override {} };
 
-using FileDocumentMap = std::map<stdfs::path, DirDocument, doj::alphanum_less<stdfs::path, doj::CASE_INSENSITIVE>>;
-using FilePropertyMap = std::map<stdfs::path, FileProperties, doj::alphanum_less<stdfs::path, doj::CASE_INSENSITIVE>>;
+using FileDocumentMap = std::map<stdfs::path, DirDocument,
+    doj::alphanum_less<stdfs::path, doj::CASE_INSENSITIVE>>;
+using FileEntryMap = tbb::concurrent_map<stdfs::path, FileProperties,
+    doj::alphanum_less<stdfs::path, doj::CASE_INSENSITIVE>>;
 
-FilePropertyMap getSortedFiles(const stdfs::path& dirPath)
+FileEntryMap getSortedFiles(const stdfs::path& dirPath)
 {
     std::vector<stdfs::path> entries;
     for (const stdfs::directory_entry& entry : stdfs::recursive_directory_iterator(dirPath))
         if (entry.is_regular_file())
             entries.push_back(entry.path());
 
-    FilePropertyMap result;
-
-    tbb::parallel_for_each(std::make_move_iterator(entries.begin()), std::make_move_iterator(entries.end()), [&result](stdfs::path&& path) {
-        // magic_set is not thread-safe
-        static thread_local std::unique_ptr<magic_set, decltype(&magic_close)> magic(
-            magic_open(MAGIC_MIME_TYPE), &magic_close);
-        if (!magic || magic_load(magic.get(), nullptr) != 0)
-        {
-            std::cerr << "Failed to initialize magic library" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        const std::string pathStr = path.string();
-        const std::string mimeType = magic_file(magic.get(), pathStr.c_str());
-
-        if (mimeType.rfind("audio/", 0) == 0)
-        {
-            if (std::optional<AudioProperties> props = openAsAudio(pathStr))
-            {
-                result.emplace(std::move(path), std::move(*props));
-            }
-            else
-            {
-                std::cout << "Could not handle " << pathStr << " as an audio file. "
-                          << "Handling as a normal file." << std::endl;
-                result.emplace(std::move(path), std::monostate{});
-            }
-        }
-        else if (mimeType.rfind("image/", 0) == 0)
-        {
-            if (nonstd::expected<ImageProperties, std::string> props = openAsImage(pathStr))
-            {
-                result.emplace(std::move(path), std::move(*props));
-            }
-            else
-            {
-                std::cout << "Could not handle " << pathStr << " as an image file: "
-                          << props.error() << ". Handling as normal file." << std::endl;
-                result.emplace(std::move(path), std::monostate{});
-            }
-        }
-        else if (mimeType.rfind("video/", 0) == 0)
-        {
-            if (auto [data, message] = openAsVideo(pathStr); data.has_value() && !data->thumbnailData.empty())
-            {
-                result.emplace(std::move(path), std::move(*data));
-            }
-            else if (data.has_value())
-            {
-                std::cout << "Could not generate thumbnail for video file " << pathStr << ": " << message << std::endl;
-                result.emplace(std::move(path), std::move(*data));
-            }
-            else
-            {
-                std::cout << "Could not handle " << pathStr << " as a video file: "
-                          << message << ". Handling as normal file." << std::endl;
-                result.emplace(std::move(path), std::monostate{});
-            }
-        }
-        else
-        {
-            result.emplace(std::move(path), std::monostate{});
-        }
+    FileEntryMap result;
+    tbb::parallel_for_each(entries, [&](const stdfs::path& path) {
+        result.emplace(path, propertiesFor(path));
     });
-
     return result;
 }
 
+static const CTML::ToStringOptions stropts(CTML::StringFormatting::MULTIPLE_LINES, true, 4, false);
+
 int main(int argc, char** argv)
 {
-    stdfs::path searchPath = argc >= 2 ? argv[1] : stdfs::path();
-    if (!stdfs::is_directory(searchPath))
-    {
-        std::cerr << "Need directory as argument" << std::endl;
-        return EXIT_FAILURE;
-    }
-
     // libav and taglib absolutely spam the console with crud on default settings
     // sadly taglib has no concept of log levels, so we have to disable logging entirely
     static NothingListener* nl = new NothingListener;
     av_log_set_level(AV_LOG_ERROR);
     TagLib::setDebugListener(nl);
 
-    FilePropertyMap fileMap = getSortedFiles(searchPath);
-    if (fileMap.empty())
+    cxxopts::options options(argv[0], "Generate an HTML view of a directory.");
+    options.allow_unrecognised_options().add_options()
+        ("entry-for", "Print the HTML entry for a given file", cxxopts::value<std::string>())
+        ("external-thumbs", "Store thumbnails in a separate folder", cxxopts::value<bool>())
+        ("help", "Print help");
+
+    cxxopts::parse_result result = options.parse(argc, argv);
+    if (result.has("entry-for"))
     {
-        std::cout << "Directory is empty. No need to continue." << std::endl;
-        return EXIT_SUCCESS;
+        stdfs::path filePath(result["entry-for"].as<std::string>());
+        std::cout << DirDocument::createFileNode(filePath).ToString(stropts) << std::endl;
     }
-
-    // create out directories + blank documents for searchPath and its parent paths
-    // even if some dirs may have no files of interest, they are still worth keeping for navigation purposes
-    FileDocumentMap docs = { { searchPath, DirDocument() } };
-    for (const stdfs::directory_entry& entry : stdfs::recursive_directory_iterator(searchPath))
-        if (entry.is_directory())
-            docs.emplace(entry.path(), DirDocument());
-
-    // go through and add files to their respective docs
-    for (auto& [parentPath, doc] : docs)
+    else if (result.has("help"))
     {
-        for (auto it = fileMap.begin(); it != fileMap.end();)
-        {
-            if (it->first.parent_path() == parentPath)
-            {
-                auto node = fileMap.extract(it++);
-                doc.addFileEntry(node.key(), node.mapped());
-            }
-            else
-            {
-                ++it;
-            }
-        }
+        std::cout << options.help() << std::endl;
     }
-
-    // relativize all of the paths in the docs map to out, create needed dirs
+    else if (result.unmatched().empty() || !stdfs::is_directory(result.unmatched().front()))
     {
-        FileDocumentMap updatedDocs;
-        for (auto& [parentPath, doc] : docs)
-        {
-            stdfs::path outPath = parentPath != searchPath ? "out" / stdfs::relative(parentPath, searchPath) : "out";
-            stdfs::create_directories(outPath);
-            updatedDocs.emplace(std::move(outPath), std::move(doc));
-        }
-        docs = std::move(updatedDocs);
+        std::cerr << "Need directory as argument" << std::endl;
+        return EXIT_FAILURE;
     }
-
-    // iterate through our now fully setup map, finalize the docs and write them
-    for (auto& [outPath, doc] : docs)
+    else
     {
-        std::vector<std::pair<std::string, std::string>> navLinks;
+        bool externalThumbs = result["external-thumbs"].as<bool>();
+        stdfs::path searchPath(result.unmatched().front());
+        FileEntryMap fileMap = getSortedFiles(searchPath);
 
-        // add link to go up a folder
-        if (outPath != "out")
-            if (stdfs::path parent = outPath.parent_path(); docs.find(parent) != docs.end())
-                navLinks.emplace_back(stdfs::relative(parent / "index.html", outPath).string(), "⬆️ Up");
-
-        // add links to subdirs
-        for (const auto& [dir, _] : docs)
+        if (fileMap.empty())
         {
-            if (dir.parent_path().lexically_normal() == outPath.lexically_normal())
-            {
-                navLinks.emplace_back(
-                    stdfs::relative(dir / "index.html", outPath).string(),
-                    "📁 " + dir.filename().string());
-            }
+            std::cout << "Directory is empty. No need to continue." << std::endl;
+            return EXIT_SUCCESS;
         }
 
-        // finalize doc
-        doc.addNavigationHeader(navLinks);
-        doc.finalize();
+        // create out directories + blank documents for searchPath and its parent paths
+        // even if some dirs may have no files of interest, they are still worth keeping for navigation purposes
+        FileDocumentMap docs;
+        docs.try_emplace(searchPath);
+        for (const stdfs::directory_entry& entry : stdfs::recursive_directory_iterator(searchPath))
+            if (entry.is_directory())
+                docs.try_emplace(entry.path());
 
-        // write doc
-        std::ofstream docFile(outPath / "index.html");
-        docFile << doc.ToString(CTML::ToStringOptions(CTML::StringFormatting::MULTIPLE_LINES, true, 4, false));
+        // go through and add files to their respective docs,
+        // relativizing paths to the out folder and updating the docs map with them along the way
+        {
+            FileDocumentMap updatedDocs;
+            for (auto& [parentPath, doc] : docs)
+            {
+                stdfs::path outPath = "out";
+                if (parentPath != searchPath)
+                    outPath /= stdfs::relative(parentPath, searchPath);
+
+                std::optional<stdfs::path> thumbsPath;
+                if (externalThumbs)
+                    thumbsPath = outPath / "thumbs";
+                stdfs::create_directories(thumbsPath.value_or(outPath));
+
+                for (auto it2 = fileMap.begin(); it2 != fileMap.end();)
+                {
+                    if (it2->first.parent_path() == parentPath)
+                    {
+                        doc.addFileEntry(doc.createFileNode(it2->first, it2->second, thumbsPath));
+                        it2 = fileMap.unsafe_erase(it2);
+                    }
+                    else
+                    {
+                        ++it2;
+                    }
+                }
+
+                updatedDocs.emplace(std::move(outPath), std::move(doc));
+            }
+            docs = std::move(updatedDocs);
+        }
+
+        // iterate through our now fully setup map, finalize the docs and write them
+        for (auto& [outPath, doc] : docs)
+        {
+            std::vector<std::pair<std::string, std::string>> navLinks;
+
+            // add link to go up a folder
+            if (outPath != "out")
+                if (stdfs::path parent = outPath.parent_path(); docs.find(parent) != docs.end())
+                    navLinks.emplace_back(stdfs::relative(parent / "index.html", outPath).string(), "⬆️ Up");
+
+            // add links to subdirs
+            for (const auto& [dir, _] : docs)
+            {
+                if (dir.parent_path() == outPath)
+                {
+                    navLinks.emplace_back(
+                        stdfs::relative(dir / "index.html", outPath).string(),
+                        "📁 " + dir.filename().string());
+                }
+            }
+
+            // finalize doc
+            doc.addNavigationHeader(navLinks);
+            doc.finalize();
+
+            // write doc
+            std::ofstream docFile(outPath / "index.html");
+            docFile << doc.ToString(stropts);
+        }
     }
 }

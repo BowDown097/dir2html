@@ -10,3 +10,6 @@
 [submodule "external/expected-lite"]
 	path = external/expected-lite
 	url = https://github.com/martinmoene/expected-lite
+[submodule "external/cxxopts"]
+	path = external/cxxopts
+	url = https://github.com/artpaul/cxxopts

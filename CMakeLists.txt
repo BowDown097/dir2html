@@ -3,7 +3,6 @@ project(dir2html LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_executable(dir2html)
 
@@ -14,6 +13,7 @@ target_sources(dir2html
         src/main.cpp
         src/filetypes/audiofile.cpp
         src/filetypes/imagefile.cpp
+        src/filetypes/properties.cpp
         src/filetypes/videofile.cpp
         src/filetypes/videothumbnailer.cpp
     PUBLIC
@@ -23,9 +23,11 @@ target_sources(dir2html
             src/documentconstants.h
             src/filetypes/audiofile.h
             src/filetypes/imagefile.h
+            src/filetypes/properties.h
             src/filetypes/videofile.h
             src/filetypes/videothumbnailer.h)
 
+# pkgconfig libraries
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(AVCODEC REQUIRED libavcodec)
 pkg_check_modules(AVFILTER REQUIRED libavfilter)
@@ -35,7 +37,14 @@ pkg_check_modules(MAGIC REQUIRED libmagic)
 pkg_check_modules(TAGLIB REQUIRED taglib)
 pkg_check_modules(TBB REQUIRED tbb)
 
-# optional zlib-ng: will improve compression efficiency for stb
+target_include_directories(dir2html PRIVATE
+    ${AVCODEC_INCLUDE_DIRS} ${AVFILTER_INCLUDE_DIRS} ${AVFORMAT_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS}
+    ${MAGIC_INCLUDE_DIRS} ${TAGLIB_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
+target_link_libraries(dir2html PRIVATE
+    ${AVCODEC_LIBRARIES} ${AVFILTER_LIBRARIES} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES}
+    ${MAGIC_LIBRARIES} ${TAGLIB_LIBRARIES} ${TBB_LIBRARIES})
+
+## optional zlib-ng: will improve compression efficiency for stb
 pkg_check_modules(ZLIB-NG QUIET zlib-ng)
 if(ZLIB-NG_FOUND)
     target_include_directories(dir2html PRIVATE ${ZLIB-NG_INCLUDE_DIRS})
@@ -45,13 +54,12 @@ else()
     message(STATUS "zlib-ng not found. Thumbnail image compression will be less efficient.")
 endif()
 
+# external libraries
 target_include_directories(dir2html PRIVATE
-    src external/base64 external/CTML/include external/expected-lite/include external/stb
-    ${AVCODEC_INCLUDE_DIRS} ${AVFILTER_INCLUDE_DIRS} ${AVFORMAT_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS}
-    ${MAGIC_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS} ${TAGLIB_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
-target_link_libraries(dir2html PRIVATE
-    ${AVCODEC_LIBRARIES} ${AVFILTER_LIBRARIES} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES}
-    ${MAGIC_LIBRARIES} ${PNG_LIBRARIES} ${TAGLIB_LIBRARIES} ${TBB_LIBRARIES})
+    external/base64 external/CTML/include external/cxxopts/include external/expected-lite/include external/stb)
+
+# add src as include dir
+target_include_directories(dir2html PRIVATE src)
 
 include(GNUInstallDirs)
 install(TARGETS dir2html

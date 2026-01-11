@@ -18,5 +18,5 @@ struct VideoProperties
     std::vector<uint8_t> thumbnailData;
 };
 
-// can't use expected due to thumbnail generation failure not being an error
+// not using expected due to thumbnail generation failure not being an error
 std::pair<std::optional<VideoProperties>, std::string> openAsVideo(std::string_view path);

@@ -1,6 +1,7 @@
 #include "dirdocument.h"
 #include "documentconstants.h"
 #include <base64.hpp>
+#include <fstream>
 
 DirDocument::DirDocument()
     : CTML::Document(), fileGrid("div")
@@ -14,87 +15,9 @@ DirDocument::DirDocument()
     AppendNodeToHead(CTML::Node("style", DocumentConstants::StyleSheet));
 }
 
-void DirDocument::addFileEntry(const std::filesystem::path& filePath, const FileProperties& fileProperties)
+void DirDocument::addFileEntry(CTML::Node&& node)
 {
-    CTML::Node fileCard("div");
-    fileCard.SetAttribute("class", "file-card");
-
-    CTML::Node fileImg("img");
-    fileImg.SetAttribute("class", "file-img");
-    fileImg.UseClosingTag(false);
-
-    CTML::Node fileInfo("div");
-    fileInfo.SetAttribute("class", "file-info");
-    fileInfo.AppendChild(CTML::Node("div")
-        .SetAttribute("class", "file-name")
-        .AppendText(filePath.filename().string()));
-
-    CTML::Node metadataPanel("div");
-    metadataPanel.SetAttribute("class", "metadata-panel");
-    metadataPanel.SetAttribute("style", "height: 0px");
-    appendMetadataItem(metadataPanel, "Size:", sizeString(filePath));
-
-    if (const AudioProperties* ap = std::get_if<AudioProperties>(&fileProperties))
-    {
-        fileImg.SetAttribute("src", DocumentConstants::AudioIcon);
-        appendMetadataItem(metadataPanel, "Title:", ap->title);
-        appendMetadataItem(metadataPanel, "Duration:", formatDuration(ap->duration));
-        appendMetadataItem(metadataPanel, "Album:", ap->album);
-        appendMetadataItem(metadataPanel, "Artist:", ap->artist);
-        appendMetadataItem(metadataPanel, "Comment:", ap->comment);
-        appendMetadataItem(metadataPanel, "Genre:", ap->genre);
-        if (ap->track)
-            appendMetadataItem(metadataPanel, "Track #:", std::to_string(ap->track));
-        if (ap->year)
-            appendMetadataItem(metadataPanel, "Year:", std::to_string(ap->year));
-    }
-    else if (const ImageProperties* ip = std::get_if<ImageProperties>(&fileProperties))
-    {
-        if (!ip->thumbnailData.empty())
-        {
-            fileImg.SetAttribute("src",
-                "data:image/png;base64," +
-                code::base64_encode(ip->thumbnailData.data(), ip->thumbnailData.size()));
-        }
-        else
-        {
-            fileImg.SetAttribute("src", DocumentConstants::ImageIcon);
-        }
-
-        appendMetadataItem(metadataPanel, "Dimensions:",
-            std::to_string(ip->width) + "×" + std::to_string(ip->height));
-    }
-    else if (const VideoProperties* vp = std::get_if<VideoProperties>(&fileProperties))
-    {
-        if (!vp->thumbnailData.empty())
-        {
-            fileImg.SetAttribute("src",
-                "data:image/png;base64," +
-                code::base64_encode(vp->thumbnailData.data(), vp->thumbnailData.size()));
-        }
-        else
-        {
-            fileImg.SetAttribute("src", DocumentConstants::VideoIcon);
-        }
-
-        std::string fps(16, '\0');
-        fps.resize(snprintf(fps.data(), fps.size(), "%.2f", vp->metadata.fps));
-
-        appendMetadataItem(metadataPanel, "Duration:", formatDuration(vp->metadata.duration));
-        appendMetadataItem(metadataPanel, "Dimensions:",
-            std::to_string(vp->metadata.width) + "×" + std::to_string(vp->metadata.height));
-        appendMetadataItem(metadataPanel, "Frame Rate:", fps + " fps");
-    }
-    else
-    {
-        fileImg.SetAttribute("src", DocumentConstants::GenericIcon);
-    }
-
-    fileInfo.AppendChild(CTML::Node("span", "▼").SetAttribute("class", "metadata-toggle"));
-    fileInfo.AppendChild(metadataPanel);
-    fileCard.AppendChild(fileImg);
-    fileCard.AppendChild(fileInfo);
-    fileGrid.AppendChild(fileCard);
+    fileGrid.AppendChild(std::move(node));
 }
 
 void DirDocument::addNavigationHeader(const std::vector<std::pair<std::string, std::string>>& links)
@@ -117,7 +40,7 @@ void DirDocument::addNavigationHeader(const std::vector<std::pair<std::string, s
 
 void DirDocument::appendMetadataItem(CTML::Node& parent, const std::string& key, const std::string& value)
 {
-    if (!value.empty() && std::any_of(value.begin(), value.end(), [](unsigned char c) { return !isspace(c); }))
+    if (!value.empty() && std::any_of(value.begin(), value.end(), std::not_fn(isspace)))
     {
         parent.AppendChild(
             CTML::Node("span")
@@ -125,6 +48,80 @@ void DirDocument::appendMetadataItem(CTML::Node& parent, const std::string& key,
                 .AppendText(' ' + value));
         parent.AppendChild(CTML::Node("br").UseClosingTag(false));
     }
+}
+
+CTML::Node DirDocument::createFileNode(const stdfs::path& path)
+{
+    return createFileNode(path, propertiesFor(path), std::nullopt);
+}
+
+CTML::Node DirDocument::createFileNode(
+    const stdfs::path& path, const FileProperties& props,
+    const std::optional<stdfs::path>& thumbsPath)
+{
+    const std::string filename = path.filename().string();
+
+    CTML::Node fileCard("div");
+    fileCard.SetAttribute("class", "file-card");
+
+    CTML::Node fileImg("img");
+    fileImg.SetAttribute("class", "file-img");
+    fileImg.UseClosingTag(false);
+
+    CTML::Node fileInfo("div");
+    fileInfo.SetAttribute("class", "file-info");
+    fileInfo.AppendChild(CTML::Node("div")
+        .SetAttribute("class", "file-name")
+        .AppendText(filename));
+
+    CTML::Node metadataPanel("div");
+    metadataPanel.SetAttribute("class", "metadata-panel");
+    metadataPanel.SetAttribute("style", "height: 0px");
+    appendMetadataItem(metadataPanel, "Size:", sizeString(path));
+
+    if (const AudioProperties* audio = std::get_if<AudioProperties>(&props))
+    {
+        fileImg.SetAttribute("src", DocumentConstants::AudioIcon);
+        appendMetadataItem(metadataPanel, "Title:", audio->title);
+        appendMetadataItem(metadataPanel, "Duration:", formatDuration(audio->duration));
+        appendMetadataItem(metadataPanel, "Album:", audio->album);
+        appendMetadataItem(metadataPanel, "Artist:", audio->artist);
+        appendMetadataItem(metadataPanel, "Comment:", audio->comment);
+        appendMetadataItem(metadataPanel, "Genre:", audio->genre);
+        if (audio->track)
+            appendMetadataItem(metadataPanel, "Track #:", std::to_string(audio->track));
+        if (audio->year)
+            appendMetadataItem(metadataPanel, "Year:", std::to_string(audio->year));
+    }
+    else if (const ImageProperties* image = std::get_if<ImageProperties>(&props))
+    {
+        setThumbnail(fileImg, image->thumbnailData, filename, DocumentConstants::ImageIcon, thumbsPath);
+        appendMetadataItem(metadataPanel, "Dimensions:",
+            std::to_string(image->width) + "×" + std::to_string(image->height));
+    }
+    else if (const VideoProperties* video = std::get_if<VideoProperties>(&props))
+    {
+        setThumbnail(fileImg, video->thumbnailData, filename, DocumentConstants::VideoIcon, thumbsPath);
+
+        std::string fps(16, '\0');
+        fps.resize(snprintf(fps.data(), fps.size(), "%.2f", video->metadata.fps));
+
+        appendMetadataItem(metadataPanel, "Duration:", formatDuration(video->metadata.duration));
+        appendMetadataItem(metadataPanel, "Dimensions:",
+            std::to_string(video->metadata.width) + "×" + std::to_string(video->metadata.height));
+        appendMetadataItem(metadataPanel, "Frame Rate:", fps + " fps");
+    }
+    else
+    {
+        fileImg.SetAttribute("src", DocumentConstants::GenericIcon);
+    }
+
+    fileInfo.AppendChild(CTML::Node("span", "▼").SetAttribute("class", "metadata-toggle"));
+    fileInfo.AppendChild(metadataPanel);
+    fileCard.AppendChild(fileImg);
+    fileCard.AppendChild(fileInfo);
+
+    return fileCard;
 }
 
 void DirDocument::finalize()
@@ -153,9 +150,30 @@ std::string DirDocument::formatDuration(int duration)
     return oss.str();
 }
 
-std::string DirDocument::sizeString(const std::filesystem::path& path)
+void DirDocument::setThumbnail(
+    CTML::Node& node, const std::vector<uint8_t>& data,
+    const std::string& filename, const std::string& fallbackIcon,
+    const std::optional<stdfs::path>& thumbsPath)
 {
-    double fileSize = std::filesystem::file_size(path);
+    if (data.empty())
+    {
+        node.SetAttribute("src", fallbackIcon);
+    }
+    else if (thumbsPath.has_value())
+    {
+        std::ofstream thumbStream(thumbsPath.value() / (filename + ".png"), std::ios::binary);
+        thumbStream.write(reinterpret_cast<const char*>(data.data()), data.size());
+        node.SetAttribute("src", "thumbs/" + filename + ".png");
+    }
+    else
+    {
+        node.SetAttribute("src", "data:image/png;base64," + code::base64_encode(data.data(), data.size()));
+    }
+}
+
+std::string DirDocument::sizeString(const stdfs::path& path)
+{
+    double fileSize = stdfs::file_size(path);
     std::ostringstream stream = std::ostringstream() << std::fixed << std::setprecision(1);
 
     if (fileSize < 1024)
