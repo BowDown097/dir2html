@@ -9,6 +9,7 @@ add_executable(dir2html)
 target_sources(dir2html
     PRIVATE
         external/stb_image_write.cpp
+        src/commands.cpp
         src/dirdocument.cpp
         src/main.cpp
         src/filetypes/audiofile.cpp
@@ -19,6 +20,7 @@ target_sources(dir2html
     PUBLIC
         FILE_SET HEADERS FILES
             src/alphanum.h
+            src/commands.h
             src/dirdocument.h
             src/documentconstants.h
             src/filetypes/audiofile.h
