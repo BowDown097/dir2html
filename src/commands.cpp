@@ -39,8 +39,6 @@ using FileDocumentMap = std::map<stdfs::path, DirDocument,
 using FileEntryMap = tbb::concurrent_map<stdfs::path, FileProperties,
     doj::alphanum_less<stdfs::path, doj::CASE_INSENSITIVE>>;
 
-static const CTML::ToStringOptions stropts(CTML::StringFormatting::MULTIPLE_LINES, true, 4, false);
-
 FileEntryMap getSortedFiles(const stdfs::path& dirPath)
 {
     std::vector<stdfs::path> entries;
@@ -69,7 +67,8 @@ namespace Commands
 void entryFor(const cxxopts::parse_result& result)
 {
     stdfs::path filePath(result["entry-for"].as<std::string>());
-    std::cout << DirDocument::createFileNode(filePath).ToString(stropts) << std::endl;
+    DirDocument doc;
+    std::cout << doc.createFileElement(filePath).serialize() << std::endl;
 }
 
 void help(const cxxopts::options& options)
@@ -77,8 +76,7 @@ void help(const cxxopts::options& options)
     std::cout << options.help() << std::endl;
 }
 
-// TODO: finish this up
-/*int merge(const cxxopts::parse_result& result)
+int merge(const cxxopts::parse_result& result)
 {
     if (result.unmatched().size() < 2)
     {
@@ -97,8 +95,20 @@ void help(const cxxopts::options& options)
     bool externalThumbs = result["external-thumbs"].as<bool>();
     std::optional<stdfs::path> thumbsPath = getThumbsPath(listingPath.parent_path(), externalThumbs);
 
+    DirDocument doc(listingPath);
+    lexbor::element element = doc.createFileElement(filePath, propertiesFor(filePath), thumbsPath);
+
+    if (!doc.mergeFileEntry(element, filePath.filename()))
+    {
+        std::cerr << "Failed to merge entry for file. Is there anywhere for it to be merged?" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::ofstream docFile(listingPath);
+    docFile << doc.serialize();
+
     return 0;
-}*/
+}
 
 int runDefault(const cxxopts::parse_result& result)
 {
@@ -141,7 +151,7 @@ int runDefault(const cxxopts::parse_result& result)
             {
                 if (it2->first.parent_path() == parentPath)
                 {
-                    doc.addFileEntry(doc.createFileNode(it2->first, it2->second, thumbsPath));
+                    doc.addFileEntry(doc.createFileElement(it2->first, it2->second, thumbsPath));
                     it2 = fileMap.unsafe_erase(it2);
                 }
                 else
@@ -182,7 +192,7 @@ int runDefault(const cxxopts::parse_result& result)
 
         // write doc
         std::ofstream docFile(outPath / "index.html");
-        docFile << doc.ToString(stropts);
+        docFile << doc.serialize();
     }
 
     return 0;

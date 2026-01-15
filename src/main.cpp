@@ -23,15 +23,15 @@ int main(int argc, char** argv)
         ("entry-for", "Print the HTML entry for a given file", cxxopts::value<std::string>())
         ("external-thumbs", "Store thumbnails in a separate folder", cxxopts::value<bool>())
         ("help", "Print help")
-        /*("merge", "Merge an entry for a file into a given already generated HTML listing")*/;
+        ("merge", "Merge an entry for a file into a given already generated HTML listing");
 
     cxxopts::parse_result result = options.parse(argc, argv);
     if (result.has("entry-for"))
         Commands::entryFor(result);
     else if (result.has("help"))
         Commands::help(options);
-    //else if (result.has("merge"))
-        //return Commands::merge(result);
+    else if (result.has("merge"))
+        return Commands::merge(result);
     else
         return Commands::runDefault(result);
 }

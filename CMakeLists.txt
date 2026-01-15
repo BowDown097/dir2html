@@ -9,6 +9,7 @@ add_executable(dir2html)
 target_sources(dir2html
     PRIVATE
         external/stb_image_write.cpp
+        src/alphanum.cpp
         src/commands.cpp
         src/dirdocument.cpp
         src/main.cpp
@@ -57,8 +58,11 @@ else()
 endif()
 
 # external libraries
+add_subdirectory(external/lexbor)
+add_subdirectory(external/lexbor-cpp)
 target_include_directories(dir2html PRIVATE
-    external/base64 external/CTML/include external/cxxopts/include external/expected-lite/include external/stb)
+    external/base64 external/cxxopts/include external/expected-lite/include external/stb)
+target_link_libraries(dir2html PRIVATE lexbor-cpp)
 
 # add src as include dir
 target_include_directories(dir2html PRIVATE src)

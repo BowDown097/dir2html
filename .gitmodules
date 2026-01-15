@@ -4,12 +4,15 @@
 [submodule "external/base64"]
 	path = external/base64
 	url = https://github.com/heifner/base64
-[submodule "external/CTML"]
-	path = external/CTML
-	url = https://github.com/BowDown097/CTML
 [submodule "external/expected-lite"]
 	path = external/expected-lite
 	url = https://github.com/martinmoene/expected-lite
 [submodule "external/cxxopts"]
 	path = external/cxxopts
 	url = https://github.com/artpaul/cxxopts
+[submodule "external/lexbor"]
+	path = external/lexbor
+	url = https://github.com/lexbor/lexbor
+[submodule "external/lexbor-cpp"]
+	path = external/lexbor-cpp
+	url = https://github.com/BowDown097/lexbor-cpp
