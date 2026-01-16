@@ -158,6 +158,26 @@ lexbor::element DirDocument::createFileElement(
     return fileCard;
 }
 
+bool DirDocument::dropFile(const std::string& filename)
+{
+    lexbor::collection cards(*this);
+    m_fileGrid->elements_by_class_name(cards, "file-card");
+
+    auto it = std::find_if(cards.begin(), cards.end(), [&filename](const lexbor::element& card) {
+        if (std::string_view fn = getFileName(card); !fn.empty())
+            return doj::alphanum_comp(fn, filename, doj::CASE_INSENSITIVE) == 0;
+        return false;
+    });
+
+    if (it != cards.end())
+    {
+        m_fileGrid->remove_child(*it);
+        return true;
+    }
+
+    return false;
+}
+
 void DirDocument::finalize()
 {
     lexbor::element script = create_element("script");

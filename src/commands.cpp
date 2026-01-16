@@ -64,6 +64,40 @@ std::optional<stdfs::path> getThumbsPath(const stdfs::path& outPath, bool extern
 
 namespace Commands
 {
+int drop(const cxxopts::parse_result& result)
+{
+    if (result.unmatched().size() < 2)
+    {
+        std::cerr << "Need HTML listing and file[name] as arguments" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    stdfs::path listingPath(result.unmatched()[0]);
+    if (!stdfs::is_regular_file(listingPath))
+    {
+        std::cerr << "Listing path must be regular file" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::string filename;
+    if (stdfs::path filePath(result.unmatched()[1]); stdfs::is_regular_file(filePath))
+        filename = filePath.filename();
+    else
+        filename = result.unmatched()[1];
+
+    DirDocument doc(listingPath);
+    if (!doc.dropFile(filename))
+    {
+        std::cerr << "File not found in listing" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::ofstream docFile(listingPath);
+    docFile << doc.serialize();
+
+    return 0;
+}
+
 void entryFor(const cxxopts::parse_result& result)
 {
     stdfs::path filePath(result["entry-for"].as<std::string>());

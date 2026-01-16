@@ -12,6 +12,7 @@ public:
     explicit DirDocument(const stdfs::path& path);
 
     void addFileEntry(lexbor::node node);
+    bool dropFile(const std::string& filename);
     void addNavigationHeader(const std::vector<std::pair<std::string, std::string>>& links);
     bool mergeFileEntry(lexbor::element element, const std::string& filename);
 

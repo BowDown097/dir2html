@@ -20,13 +20,16 @@ int main(int argc, char** argv)
 
     cxxopts::options options(argv[0], "Generate an HTML view of a directory.");
     options.allow_unrecognised_options().add_options()
+        ("drop", "Drop a file from a given already generated HTML listing")
         ("entry-for", "Print the HTML entry for a given file", cxxopts::value<std::string>())
         ("external-thumbs", "Store thumbnails in a separate folder", cxxopts::value<bool>())
         ("help", "Print help")
         ("merge", "Merge an entry for a file into a given already generated HTML listing");
 
     cxxopts::parse_result result = options.parse(argc, argv);
-    if (result.has("entry-for"))
+    if (result.has("drop"))
+        return Commands::drop(result);
+    else if (result.has("entry-for"))
         Commands::entryFor(result);
     else if (result.has("help"))
         Commands::help(options);
