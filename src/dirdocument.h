@@ -26,6 +26,8 @@ private:
 
     void appendMetadataItem(lexbor::element& parent, const std::string& key, const std::string& value);
     static std::string formatDuration(int duration);
+    static std::optional<lexbor::element> getFileGrid(lexbor::document& doc);
+    static std::string_view getFileName(const lexbor::element& card);
     static void setThumbnail(
         lexbor::element& element, const std::vector<uint8_t>& data,
         const std::string& filename, std::string_view fallbackIcon,

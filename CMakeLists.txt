@@ -13,6 +13,7 @@ target_sources(dir2html
         src/commands.cpp
         src/dirdocument.cpp
         src/main.cpp
+        src/utils.cpp
         src/filetypes/audiofile.cpp
         src/filetypes/imagefile.cpp
         src/filetypes/properties.cpp
@@ -24,6 +25,7 @@ target_sources(dir2html
             src/commands.h
             src/dirdocument.h
             src/documentconstants.h
+            src/utils.h
             src/filetypes/audiofile.h
             src/filetypes/imagefile.h
             src/filetypes/properties.h

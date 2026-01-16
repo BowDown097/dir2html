@@ -1,26 +1,10 @@
 #include "dirdocument.h"
 #include "alphanum.h"
 #include "documentconstants.h"
+#include "utils.h"
 #include <base64.hpp>
 #include <fstream>
 #include <lexbor-cpp/collection.h>
-
-std::string getFileContent(const stdfs::path& path)
-{
-    std::ifstream in(path);
-    size_t size = stdfs::file_size(path);
-    std::string content(size, '\0');
-    in.read(&content[0], size);
-    return content;
-}
-
-std::optional<lexbor::element> getFileGrid(lexbor::document& doc)
-{
-    if (lxb_dom_node_t* node = doc.query_selector(".file-grid"))
-        return lexbor::element(lxb_dom_interface_element(node));
-    else
-        return std::nullopt;
-}
 
 DirDocument::DirDocument()
     : lexbor::document("<!DOCTYPE html><html><head></head><body></body></html>"),
@@ -81,7 +65,7 @@ void DirDocument::addNavigationHeader(const std::vector<std::pair<std::string, s
 
 void DirDocument::appendMetadataItem(lexbor::element& parent, const std::string& key, const std::string& value)
 {
-    if (!value.empty() && std::any_of(value.begin(), value.end(), std::not_fn(isspace)))
+    if (!value.empty() && std::any_of(value.begin(), value.end(), [](unsigned char c) { return !std::isspace(c); }))
     {
         lexbor::element strong = create_element("strong");
         strong.inner_html_set(lexbor::string_view(key));
@@ -203,28 +187,37 @@ std::string DirDocument::formatDuration(int duration)
     return oss.str();
 }
 
+std::optional<lexbor::element> DirDocument::getFileGrid(lexbor::document& doc)
+{
+    if (lxb_dom_node_t* node = doc.query_selector(".file-grid"))
+        return lexbor::element(lxb_dom_interface_element(node));
+    else
+        return std::nullopt;
+}
+
+std::string_view DirDocument::getFileName(const lexbor::element& card)
+{
+    if (lxb_dom_node_t* node = card.query_selector(".file-name"))
+    {
+        size_t len = 0;
+        if (lxb_char_t* text = lxb_dom_node_text_content(node, &len))
+        {
+            std::string_view sv(reinterpret_cast<const char*>(text), len);
+            return ltrim(rtrim(sv));
+        }
+    }
+
+    return {};
+}
+
 bool DirDocument::mergeFileEntry(lexbor::element element, const std::string& filename)
 {
     lexbor::collection cards(*this);
     m_fileGrid->elements_by_class_name(cards, "file-card");
 
-    if (cards.length() == 0)
-    {
-        m_fileGrid->insert_child(element);
-        return true;
-    }
-
     auto it = std::find_if(cards.begin(), cards.end(), [&filename](const lexbor::element& card) {
-        if (lxb_dom_node_t* node = card.query_selector(".file-name"))
-        {
-            size_t len = 0;
-            if (lxb_char_t* text = lxb_dom_node_text_content(node, &len))
-            {
-                std::string_view sv(reinterpret_cast<const char*>(text), len);
-                return doj::alphanum_comp(sv, filename, doj::CASE_INSENSITIVE) >= 0;
-            }
-        }
-
+        if (std::string_view fn = getFileName(card); !fn.empty())
+            return doj::alphanum_comp(fn, filename, doj::CASE_INSENSITIVE) >= 0;
         return false;
     });
 
@@ -236,8 +229,11 @@ bool DirDocument::mergeFileEntry(lexbor::element element, const std::string& fil
             lxb_dom_interface_node((*it).get_ptr()));
         return code == LXB_DOM_EXCEPTION_OK;
     }
-
-    return false;
+    else
+    {
+        m_fileGrid->insert_child(element);
+        return true;
+    }
 }
 
 void DirDocument::setThumbnail(
