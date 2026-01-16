@@ -80,15 +80,15 @@ int merge(const cxxopts::parse_result& result)
 {
     if (result.unmatched().size() < 2)
     {
-        std::cerr << "Need file and HTML listing as arguments" << std::endl;
+        std::cerr << "Need HTML listing and file as arguments" << std::endl;
         return EXIT_FAILURE;
     }
 
-    stdfs::path filePath(result.unmatched()[0]);
-    stdfs::path listingPath(result.unmatched()[1]);
-    if (!stdfs::is_regular_file(filePath) || !stdfs::is_regular_file(listingPath))
+    stdfs::path listingPath(result.unmatched()[0]);
+    stdfs::path filePath(result.unmatched()[1]);
+    if (!stdfs::is_regular_file(listingPath) || !stdfs::is_regular_file(filePath))
     {
-        std::cerr << "File and HTML listing arguments must be regular files" << std::endl;
+        std::cerr << "Arguments must be regular files" << std::endl;
         return EXIT_FAILURE;
     }
 
