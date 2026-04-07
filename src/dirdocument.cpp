@@ -158,7 +158,7 @@ lexbor::element DirDocument::createFileElement(
     return fileCard;
 }
 
-bool DirDocument::dropFile(const std::string& filename)
+std::optional<lexbor::element> DirDocument::dropFile(const std::string& filename)
 {
     lexbor::collection cards(*this);
     m_fileGrid->elements_by_class_name(cards, "file-card");
@@ -172,10 +172,10 @@ bool DirDocument::dropFile(const std::string& filename)
     if (it != cards.end())
     {
         m_fileGrid->remove_child(*it);
-        return true;
+        return *it;
     }
 
-    return false;
+    return std::nullopt;
 }
 
 void DirDocument::finalize()

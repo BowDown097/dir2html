@@ -60,11 +60,21 @@ else()
 endif()
 
 # external libraries
+
+## tidy-html5
+set(BUILD_SHARED_LIB OFF CACHE BOOL "")
+set(SUPPORT_CONSOLE_APP OFF CACHE BOOL "")
+add_subdirectory(external/tidy-html5)
+target_link_libraries(dir2html PRIVATE tidy-static)
+
+## lexbor-cpp
 add_subdirectory(external/lexbor)
 add_subdirectory(external/lexbor-cpp)
+target_link_libraries(dir2html PRIVATE lexbor-cpp)
+
+## the rest
 target_include_directories(dir2html PRIVATE
     external/base64 external/cxxopts/include external/expected-lite/include external/stb)
-target_link_libraries(dir2html PRIVATE lexbor-cpp)
 
 # add src as include dir
 target_include_directories(dir2html PRIVATE src)

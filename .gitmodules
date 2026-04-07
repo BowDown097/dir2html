@@ -16,3 +16,7 @@
 [submodule "external/lexbor-cpp"]
 	path = external/lexbor-cpp
 	url = https://github.com/BowDown097/lexbor-cpp
+[submodule "external/tidy-html5"]
+	path = external/tidy-html5
+	url = https://github.com/renodr/tidy-html5
+	branch = renodr-adjust-cmakelists-for-cmake4
